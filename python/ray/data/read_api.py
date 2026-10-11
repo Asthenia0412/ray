@@ -3370,7 +3370,9 @@ def read_mcap(
             ``id_column`` of a :class:`~ray.data.checkpoint.CheckpointConfig`.
             Turned on automatically when the current checkpoint config's
             ``id_column`` is ``row_id``. Requires the V2 datasource
-            (``DataContext.use_datasource_v2``).
+            (``DataContext.use_datasource_v2``). ``read_mcap`` refuses
+            ``CheckpointConfig(generated_id_column=...)``, which only
+            ``read_parquet`` supports.
         filesystem: The PyArrow filesystem implementation to read from.
         parallelism: This argument is deprecated. Use ``override_num_blocks`` argument.
         num_cpus: The number of CPUs to reserve for each parallel read worker.
@@ -3430,6 +3432,16 @@ def read_mcap(
         time_range = TimeRange(start_time=time_range[0], end_time=time_range[1])
 
     ctx = DataContext.get_current()
+    checkpoint_config = ctx.checkpoint_config
+    if checkpoint_config is not None and checkpoint_config.has_generated_id_column:
+        from ray.data.checkpoint.interfaces import InvalidCheckpointingConfig
+
+        raise InvalidCheckpointingConfig(
+            "`CheckpointConfig(generated_id_column=...)` works only with "
+            "`read_parquet`. For `read_mcap`, use "
+            '`CheckpointConfig(id_column="row_id")`. Its `row_id` column gives '
+            "each message an id that stays the same on every run."
+        )
     if ctx.use_datasource_v2:
         from ray.data._internal.datasource_v2.formats.mcap.mcap_datasource_v2 import (
             MCAPDatasourceV2,
@@ -3438,7 +3450,6 @@ def read_mcap(
             ROW_ID_COLUMN,
         )
 
-        checkpoint_config = ctx.checkpoint_config
         if (
             checkpoint_config is not None
             and checkpoint_config.id_column == ROW_ID_COLUMN
