@@ -114,7 +114,7 @@ def start_service(
         ray_commit = (
             ray.__commit__[:8] if ray.__commit__ != "{{RAY_COMMIT_SHA}}" else "nocommit"
         )
-        suffix = uuid.uuid4().hex if new_service_only else get_random_string()
+        suffix = uuid.uuid4().hex[:16] if new_service_only else get_random_string()
         service_name = f"{service_name}-{ray_commit}-{suffix}"
 
     if image_uri is None:
