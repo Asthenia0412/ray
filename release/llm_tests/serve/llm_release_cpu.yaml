@@ -16,13 +16,20 @@ head_node:
         - name: release-aws
           secret:
             secretName: '{{ env["RELEASE_AWS_SECRET_NAME"] }}'
+        - name: release-api
+          secret:
+            secretName: '{{ env["RELEASE_ANYSCALE_SECRET_NAME"] }}'
       containers:
         - name: ray
           volumeMounts:
             - name: release-aws
               mountPath: /tmp/.aws-release
               readOnly: true
+            - name: release-api
+              mountPath: /tmp/.release-api
+              readOnly: true
           env:
+            - {name: RELEASE_ANYSCALE_TOKEN_FILE, value: /tmp/.release-api/token}
             - {name: RELEASE_IMAGE_PULL_SECRET_NAME, value: '{{ env["RELEASE_IMAGE_PULL_SECRET_NAME"] }}'}
             - {name: RELEASE_AWS_SECRET_NAME, value: '{{ env["RELEASE_AWS_SECRET_NAME"] }}'}
             - {name: AWS_SHARED_CREDENTIALS_FILE, value: /tmp/.aws-release/credentials}

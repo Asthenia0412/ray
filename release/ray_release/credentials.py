@@ -52,6 +52,7 @@ def prepare_release_credentials(test):
     }
     suffix = uuid.uuid4().hex
     aws_name, image_name = "release-aws-" + suffix, "release-ecr-" + suffix
+    api_name = "release-api-" + suffix
     credential_file = (
         "[release-tests]\n"
         f"aws_access_key_id = {assumed['AccessKeyId']}\n"
@@ -68,6 +69,11 @@ def prepare_release_credentials(test):
             image_name,
             "kubernetes.io/dockerconfigjson",
             {".dockerconfigjson": json.dumps({"auths": registry_auth})},
+        ),
+        (
+            api_name,
+            "Opaque",
+            {"token": config["anyscale_token"], "host": config["anyscale_host"]},
         ),
     ]
     # POST creates a new object. A collision fails; we never PATCH, PUT, or DELETE.
@@ -100,5 +106,6 @@ def prepare_release_credentials(test):
 
     os.environ["RELEASE_AWS_SECRET_NAME"] = aws_name
     os.environ["RELEASE_IMAGE_PULL_SECRET_NAME"] = image_name
+    os.environ["RELEASE_ANYSCALE_SECRET_NAME"] = api_name
     os.environ["ANYSCALE_HOST"] = config["anyscale_host"]
     os.environ["ANYSCALE_CLI_TOKEN"] = config["anyscale_token"]

@@ -9,12 +9,19 @@
 # --run-serve-llm-profiler and --run-vllm-profiler, the service and vLLM job
 # will run at the same time.
 
-# NOTE: This needs to get imported first because locust does not work
-# well with a lot of libraries including openai, boto3, ray
-# ruff: noqa: I001
-from benchmark.bm import run_bm
+# A cluster CLI token cannot resolve named secondary cloud resources. Opt-in
+# controllers read their API token before importing any SDK clients.
 import os
-from pathlib import Path  # noqa: E402
+from pathlib import Path
+
+if token_file := os.environ.get("RELEASE_ANYSCALE_TOKEN_FILE"):
+    os.environ["ANYSCALE_CLI_TOKEN"] = Path(token_file).read_text().strip()
+    os.environ["ANYSCALE_HOST"] = Path(token_file).with_name("host").read_text().strip()
+
+# Locust must be the first third-party import because it does not work well
+# when imported after libraries including openai, boto3, and ray.
+# ruff: noqa: I001
+from benchmark.bm import run_bm  # noqa: E402
 from typing import Optional
 
 import click

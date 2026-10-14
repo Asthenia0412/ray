@@ -148,10 +148,12 @@ def start_service(
     else:
         terminate_service_if_running(service_name=service_name, cloud=cloud)
 
+    deployment_created = False
     try:
         logger.info(f"Service config: {service_config}")
         with timeit("service_startup", time_metrics):
             service.deploy(service_config)
+            deployment_created = True
 
             wait_for_condition(
                 check_service_state,
@@ -171,17 +173,18 @@ def start_service(
         }
 
     finally:
-        logger.info(f"Terminating service {service_name}.")
-        service.terminate(name=service_name, cloud=cloud)
-        wait_for_condition(
-            check_service_state,
-            service_name=service_name,
-            expected_state="TERMINATED",
-            retry_interval_ms=10000,  # 10s
-            timeout=timeout_s,
-            cloud=cloud,
-        )
-        logger.info(f"Service '{service_name}' terminated successfully.")
+        if deployment_created or not new_service_only:
+            logger.info(f"Terminating service {service_name}.")
+            service.terminate(name=service_name, cloud=cloud)
+            wait_for_condition(
+                check_service_state,
+                service_name=service_name,
+                expected_state="TERMINATED",
+                retry_interval_ms=10000,  # 10s
+                timeout=timeout_s,
+                cloud=cloud,
+            )
+            logger.info(f"Service '{service_name}' terminated successfully.")
 
 
 def get_service_compute_config(

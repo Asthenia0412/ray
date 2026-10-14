@@ -29,7 +29,11 @@ def test_existing_tests_do_not_provision_credentials():
 
 @pytest.mark.parametrize("status", [201, 409, 403])
 def test_create_only_credentials(config, monkeypatch, status):
-    for key in ("RELEASE_AWS_SECRET_NAME", "RELEASE_IMAGE_PULL_SECRET_NAME"):
+    for key in (
+        "RELEASE_AWS_SECRET_NAME",
+        "RELEASE_IMAGE_PULL_SECRET_NAME",
+        "RELEASE_ANYSCALE_SECRET_NAME",
+    ):
         monkeypatch.delenv(key, raising=False)
     client = MagicMock()
     client.get_secret_value.return_value = {"SecretString": json.dumps(config)}
@@ -62,8 +66,16 @@ def test_create_only_credentials(config, monkeypatch, status):
             assert post.call_count == 1
             return
         prepare_release_credentials({"cluster": {"credential_config_secret": "arn"}})
-        assert post.call_count == 2
-        aws_secret, image_secret = [call.kwargs["json"] for call in post.call_args_list]
+        assert post.call_count == 3
+        aws_secret, image_secret, api_secret = [
+            call.kwargs["json"] for call in post.call_args_list
+        ]
+        assert api_secret["stringData"] == {
+            "token": "anyscale-token",
+            "host": "https://console.anyscale-staging.com",
+        }
+        assert "token" not in aws_secret["stringData"]
+        assert "token" not in image_secret["stringData"]
         assert aws_secret["metadata"]["name"] != image_secret["metadata"]["name"]
         assert "[release-tests]" in aws_secret["stringData"]["credentials"]
         docker = json.loads(image_secret["stringData"][".dockerconfigjson"])
