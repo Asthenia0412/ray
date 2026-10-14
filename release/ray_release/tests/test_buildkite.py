@@ -781,6 +781,24 @@ class BuildkiteSettingsTest(unittest.TestCase):
         test_concurrency(1, 0, "minuscule")
         test_concurrency(33, 0, "small")
 
+    def testB200ConcurrencyGroup(self):
+        test = Test({"name": "b200_test", "cluster": {"cluster_compute": "any.yaml"}})
+        configs = [
+            {"head_node_type": {"instance_type": "p6-b200.48xlarge"}},
+            {"worker_node_types": [{"instance_type": "184CPU-1920GB-8xB200"}]},
+            {"worker_nodes": [{"instance_type": "23CPU-240GB-1xB200"}]},
+        ]
+        for config in configs:
+            with self.subTest(config=config), patch(
+                "ray_release.buildkite.concurrency.load_test_cluster_compute",
+                return_value=config,
+            ):
+                self.assertEqual(get_concurrency_group(test), ("b200", 1))
+
+    def testB200ServiceConcurrencyGroup(self):
+        test = Test({"name": "service_test", "concurrency_group": "b200"})
+        self.assertEqual(get_concurrency_group(test), ("b200", 1))
+
     def testConcurrencyGroupSmokeTest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             cluster_config_full = {

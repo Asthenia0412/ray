@@ -12,6 +12,10 @@
 				"group": {
 					"type": "string"
 				},
+				"concurrency_group": {
+					"type": "string",
+					"enum": ["b200"]
+				},
 				"working_dir": {
 					"type": "string"
 				},
@@ -98,6 +102,9 @@
 				},
 				"anyscale_sdk_2026": {
 					"type": "boolean"
+				},
+				"credential_config_secret": {
+					"type": "string"
 				}
 			},
 			"required": [

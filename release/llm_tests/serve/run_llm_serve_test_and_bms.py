@@ -55,11 +55,17 @@ SERVICE_NAME = "serve_llm_release_test_service"
 )
 @click.option("--serve-config-file", type=str, help="Serve config file for this test")
 @click.option(
+    "--cloud", type=str, default=CLOUD, help="Anyscale cloud for the service."
+)
+@click.option(
+    "--new-service-only", is_flag=True, help="Refuse to modify an existing Service."
+)
+@click.option(
     "--compute-config",
     type=str,
     default=None,
     help=(
-        "Optional Anyscale compute config name/version to use for the service. "
+        "Optional Anyscale compute config name/version or local YAML file for the service. "
         "Defaults to ANYSCALE_JOB_CLUSTER_COMPUTE_NAME from the release job."
     ),
 )
@@ -97,6 +103,8 @@ def main(
     skip_hf_token: bool,
     timeout: int,
     run_vllm_profiler: bool,
+    cloud: str,
+    new_service_only: bool,
 ):
     if image_uri is None:
         # We expect this environment variable to be set for all release tests
@@ -123,9 +131,10 @@ def main(
         compute_config=compute_config,
         applications=applications,
         working_dir=".",
-        cloud=CLOUD,
+        cloud=cloud,
         env_vars=env_vars,
         timeout_s=timeout,
+        new_service_only=new_service_only,
     ) as service_info:
         api_url = service_info["api_url"]
         api_token = service_info["api_token"]

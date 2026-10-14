@@ -5,6 +5,7 @@ import re
 import subprocess
 import time
 import uuid
+from pathlib import Path
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Union
 
@@ -14,6 +15,7 @@ from openai import OpenAI
 import boto3
 import ray
 import yaml
+import jinja2
 from anyscale import service
 from anyscale.compute_config.models import ComputeConfig
 from anyscale.service.models import ServiceState
@@ -86,6 +88,7 @@ def start_service(
     cloud: Optional[str] = None,
     env_vars: Optional[Dict[str, str]] = None,
     timeout_s: int = 900,  # seconds
+    new_service_only: bool = False,
 ):
     """Starts an Anyscale Service with the specified configs.
 
@@ -111,7 +114,8 @@ def start_service(
         ray_commit = (
             ray.__commit__[:8] if ray.__commit__ != "{{RAY_COMMIT_SHA}}" else "nocommit"
         )
-        service_name = f"{service_name}-{ray_commit}-{get_random_string()}"
+        suffix = uuid.uuid4().hex if new_service_only else get_random_string()
+        service_name = f"{service_name}-{ray_commit}-{suffix}"
 
     if image_uri is None:
         # We expect this environment variable to be set for all release tests
@@ -127,12 +131,22 @@ def start_service(
         applications=applications,
         env_vars=env_vars,
         query_auth_token_enabled=False,
+        cloud=cloud,
     )
 
     # If the service already exists, terminate and the start a new service
     # so the new service starts immediately. Otherwise, start a new service
     # without a canary_percent.
-    terminate_service_if_running(service_name=service_name, cloud=cloud)
+    if new_service_only:
+        try:
+            service.status(name=service_name, cloud=cloud)
+        except RuntimeError as exc:
+            if "was not found" not in str(exc):
+                raise
+        else:
+            raise RuntimeError(f"Refusing to modify existing Service {service_name}")
+    else:
+        terminate_service_if_running(service_name=service_name, cloud=cloud)
 
     try:
         logger.info(f"Service config: {service_config}")
@@ -172,7 +186,7 @@ def start_service(
 
 def get_service_compute_config(
     compute_config: Optional[str] = None,
-) -> str:
+) -> Union[ComputeConfig, str]:
     """Get the compute config to use when starting the Anyscale Service."""
     service_compute_config = compute_config or os.environ.get(
         ANYSCALE_JOB_CLUSTER_COMPUTE_NAME_ENV_VAR
@@ -183,6 +197,13 @@ def get_service_compute_config(
             f"--compute-config or {ANYSCALE_JOB_CLUSTER_COMPUTE_NAME_ENV_VAR}; "
             "release jobs should provide this automatically."
         )
+    if compute_config and Path(compute_config).is_file():
+        rendered = (
+            jinja2.Environment(undefined=jinja2.StrictUndefined)
+            .from_string(Path(compute_config).read_text())
+            .render(env=os.environ)
+        )
+        return ComputeConfig.from_dict(yaml.safe_load(rendered))
     return service_compute_config
 
 

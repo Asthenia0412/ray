@@ -101,6 +101,20 @@ def parse_condition(cond: int, limit: float = float("inf")) -> float:
 
 
 def get_concurrency_group(test: Test) -> Tuple[str, int]:
+    # Service tests can reserve B200 capacity while their controller job uses CPUs.
+    if test.get("concurrency_group") == "b200":
+        return "b200", 1
+    if test.get("cluster", {}).get("cluster_compute"):
+        try:
+            compute = load_test_cluster_compute(test)
+            nodes = [compute.get("head_node", compute.get("head_node_type", {}))]
+            nodes += compute.get("worker_nodes", compute.get("worker_node_types", []))
+            if any("b200" in node.get("instance_type", "").lower() for node in nodes):
+                return "b200", 1
+        except Exception as e:
+            logger.debug(
+                f"Couldn't inspect B200 instance types for {test['name']}: {e}"
+            )
     if test.get("env", None) == "gce":
         concurrent_group = gce_gpu_cpu_to_concurrent_groups
     else:
